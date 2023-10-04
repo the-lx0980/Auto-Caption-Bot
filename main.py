@@ -2,9 +2,9 @@ from pyrogram import Client, filters, enums
 
 app = Client(
   'autocaption',
-  api_id = v,
-  api_hash = '',
-  bot_token = ''
+  api_id = 6353248,
+  api_hash = '1346f958b9d917f0961f3e935329eeee',
+  bot_token = '6285956621:AAF16zJce7vXr3wukHJDO9qOYpXQ-AcSInU'
 )  
 
 @app.on_message(filters.command('start'))
