@@ -13,7 +13,7 @@ async def start(bot, update):
 
 @app.on_message((filters.video | filters.document) & filters.channel)
 async def autocaption(bot, update):
-    await bot.edit_media_caption(
+    await bot.edit_message_caption(
         caption='This Caption From Bot',
         message_id=update.id,
         chat_id=update.chat.id,
