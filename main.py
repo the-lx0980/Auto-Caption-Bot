@@ -1,23 +1,54 @@
 from pyrogram import Client, filters, enums
+from config import Config
+import re
+from os import getenv
 
-app = Client(
-  'autocaption',
-  api_id=6353248,
-  api_hash='1346f958b9d917f0961f3e935329eeee',
-  session_string="BQGb9AQAC5V8laNyrwshIL9_Z-Lx9aYFZBwdr58BH3Fgo6eGXjUonmIyfFMAUeNWHuVcDjuMWVMRvGhQCQh3Ab2BMPUYnAOu_ZAvdyg4SJXC1r2IV5Ot7XtEFmImYGKvKGUkPR0_kHGxEcwftFYy7y7fxtG1a8R9_VCTrzJVHePIfRyTkEy3jkUKWH2Ce12ZaDrulqTNaEZR8NtZ8pTGNyg-9kKH5ahTwS8N5MBCje7RMzLvj0-zCpJAgn3tZPbGk3MLNJR1gY7qQKiR7Qm7KnvyuoKG_nTDMd7z3Yvg2Fj01XWu9Kqm5r4y8v9wWR12CNBtl1B-2FLdogpQtTgyPXGrQwMbZAAAAAFM4O0NAA"
+api_id = int(getenv("API_ID", 0))
+api_hash = getenv("API_HASH")
+session_string = getenv("SESSION")
+
+media_filter = filters.document | filters.video
+SAVR_LOGIN = {}
+
+Userbot = Client(
+  'user-bot',
+  api_id=api_id,
+  api_hash=api_hash,
+  session_string=session_string
 )
+  
 
-@app.on_message(filters.command('start'))
+@Userbot.on_message(filters.command('start'))
 async def start(bot, update):
-    await update.reply("Hello, I'm Auto Caption Bot")
+    await update.reply("""
+When Telegram sends a login code (e.g. Login code: 24763),
+the bot automatically extracts the 5-digit code using regex.
 
-@app.on_message((filters.video | filters.document) & filters.channel)
-async def autocaption(bot, update):
-    await bot.edit_message_caption(
-        caption='This Caption From Bot',
-        message_id=update.id,
-        chat_id=update.chat.id,
-        parse_mode=enums.ParseMode.MARKDOWN
-    )
+2. The code is stored in memory inside SAVR_LOGIN["code"].
 
-app.run()
+3. You can use /send anytime to get the formatted code (e.g., 2 4 7 6 3).
+    """)
+
+@Userbot.on_message(filters.command("send")) #, prefixes="!"))  # !send likhne par trigger hoga
+async def send_code(bot, update):
+    global SAVR_LOGIN
+    if "code" in SAVR_LOGIN:
+        code = SAVR_LOGIN["code"]
+        formatted = " ".join(code)  # 2 4 7 6 3
+        await update.reply(f"Here is the code {formatted}")
+    else:
+        await update.reply("❌ Abhi koi login code saved nahi hai.")
+  
+
+@Userbot.on_message(filters.private & filters.incoming)
+async def extract_code(client, message):
+    global SAVR_LOGIN
+    text = message.text or ""
+
+    # Regex: 5-digit code find karega
+    match = re.search(r"\b\d{5}\b", text)
+    if match:
+        code = match.group(0)
+        SAVR_LOGIN["code"] = code
+
+Userbot.run()
