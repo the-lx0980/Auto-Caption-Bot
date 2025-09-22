@@ -1,5 +1,4 @@
 from pyrogram import Client, filters, enums
-from config import Config
 import re
 from os import getenv
 
