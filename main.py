@@ -60,10 +60,15 @@ def build_status_page(project_names, statuses, page=0, for_channel=False):
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
     lines = []
+    buttons = []
+
+    # Project list section
     for idx, name in enumerate(project_names[start:end], start=start + 1):
         status = statuses.get(name, "Unknown")
         emoji = "🟢" if status == "Online" else ("🟡" if status.startswith("Unstable") else "🔴")
         lines.append(f"{idx}. <b>{name}</b> — {emoji} {status}")
+        # Add a clickable button for this project
+        buttons.append([InlineKeyboardButton(f"{emoji} {name}", callback_data=f"menu:{name}")])
 
     header = f"📊 <b>Project Status</b>\nLast checked: <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>\n\n"
     body = "\n".join(lines) if lines else "No projects to display."
@@ -71,17 +76,21 @@ def build_status_page(project_names, statuses, page=0, for_channel=False):
     text = header + body + footer
 
     if for_channel:
+        # Channel message has no buttons
         return text, None
 
-    buttons = []
-    row = []
+    # Pagination buttons
+    nav_row = []
     if page > 0:
-        row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"page:{page - 1}"))
+        nav_row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"page:{page - 1}"))
     if page < pages - 1:
-        row.append(InlineKeyboardButton("Next ➡️", callback_data=f"page:{page + 1}"))
-    if row:
-        buttons.append(row)
+        nav_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"page:{page + 1}"))
+    if nav_row:
+        buttons.append(nav_row)
+
+    # Check all button
     buttons.append([InlineKeyboardButton("✅ Check All Now", callback_data="check_all")])
+
     keyboard = InlineKeyboardMarkup(buttons)
     return text, keyboard
 
