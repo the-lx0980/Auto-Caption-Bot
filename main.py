@@ -11,11 +11,13 @@ API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", "736279262"))
 
+#https://api.render.com/deploy/ srv-cj8tea8eba7s73fvadu0 ?key =aZgM2q3f5pY
 # ✅ Multiple Render Projects (each with its own Render API key)
+
 PROJECTS = {
-    "File Streamer": {
-        "service_id": "srv-cpuduhdjbks73efe7a0",
-        "api_key": "PkNRRjskswGAo",
+    "WebXzone": {
+        "service_id": "srv-cj8tea8eba7s73fvadu0",
+        "api_key": "aZgM2q3f5pY",
     },
     "Video Host": {
         "service_id": "srv-cxyz123abc456",
