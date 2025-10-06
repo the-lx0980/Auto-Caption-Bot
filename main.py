@@ -17,14 +17,14 @@ OWNER_ID = int(os.getenv("OWNER_ID", "5326801541"))
 PROJECTS = {
     "File Streamer": {
         "deploy_url": "https://api.render.com/deploy/srv-cj8tea8eba7s73fvadu0?key=aZgM2q3f5pY",
-        "app_url": "https://file-strra.onrender.com"
+        "app_url": "https://webxzonebot.onrender.com"
     },
-    "Video Stream": {
-        "deploy_url": "https://api.render.com/deploy/srv-cpuduhdjbks73efe7a0?key=PkNRRjskswGAo",
-        "app_url": "https://video-strra.onrender.com"
+    "Channel Clone": {
+        "deploy_url": "https://api.render.com/deploy/srv-cs7j8lbv2p9s73f3dksg?key=Midzpimsd88",
+        "app_url": "https://the-cloner-boy-cx2q.onrender.com"
     }
 }
-
+    
 app = Client(
     "multi_render_bot",
     api_id=API_ID,
