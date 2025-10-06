@@ -3,6 +3,7 @@ import httpx
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
+from pyrogram.enums import ParseMode
 
 load_dotenv()
 
@@ -11,31 +12,21 @@ API_HASH = "751e7a1469a1099fb3748c5ca755e918" #os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", "5326801541"))
 
-#https://api.render.com/deploy/ srv-cj8tea8eba7s73fvadu0 ?key =aZgM2q3f5pY
+# https://api.render.com/deploy/srv-cj8tea8eba7s73fvadu0?key=aZgM2q3f5pY
 # ✅ Multiple Render Projects (each with its own Render API key)
 
 PROJECTS = {
-    "WebXzone": {
-        "service_id": "srv-cj8tea8eba7s73fvadu0",
-        "api_key": "aZgM2q3f5pY",
-    },
-    "Video Host": {
-        "service_id": "srv-cxyz123abc456",
-        "api_key": "PHabc123xyz789",
-    },
-    "API Server": {
-        "service_id": "srv-c987def654ghi",
-        "api_key": "PH654xyz987pqr",
-    },
-    # ➕ Add more projects below
+    "File Streamer": "https://api.render.com/deploy/srv-cj8tea8eba7s73fvadu0?key=aZgM2q3f5pY",
+    "Video Stream": "https://api.render.com/deploy/srv-cpuduhdjbks73efe7a0?key=PkNRRjskswGAo",
+    # Add more here
 }
 
 app = Client(
     "multi_render_bot",
     api_id=API_ID,
     api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
-    parse_mode=ParseMode.HTML   # Use enum-based parse mode ✅
+    bot_token=BOT_TOKEN
+   # parse_mode=ParseMode.HTML   # Use enum-based parse mode ✅
 )
 
 
