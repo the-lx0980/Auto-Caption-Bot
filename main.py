@@ -30,7 +30,8 @@ app = Client(
 )
 
 
-# --- Helper: Trigger Render deploy ---
+
+# --- Helper function: Trigger Render Deploy ---
 async def trigger_render_deploy(url: str) -> str:
     async with aiohttp.ClientSession() as session:
         try:
@@ -60,7 +61,12 @@ async def start_command(_, message):
 # --- Inline button handler ---
 @app.on_callback_query(filters.regex(r"^deploy:(.+)"))
 async def deploy_button(_, query):
-    project_name = query.data.split(":", 1)[1]
+    data = query.data
+    if not data.startswith("deploy:"):
+        await query.answer("Invalid request!", show_alert=True)
+        return
+
+    project_name = data.split(":", 1)[1]
     deploy_url = PROJECTS.get(project_name)
 
     if not deploy_url:
@@ -69,6 +75,48 @@ async def deploy_button(_, query):
 
     try:
         await query.message.edit_text(
+            f"⏳ Redeploying <b>{project_name}</b> ...",
+            parse_mode=ParseMode.HTML
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+    except Exception as e:
+        print(f"Edit error: {e}")
+
+    # Trigger deploy
+    result = await trigger_render_deploy(deploy_url)
+
+    try:
+        await query.message.edit_text(
+            f"<b>{project_name}</b>\n\n{result}",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔁 Redeploy Again", callback_data=f"deploy:{project_name}")],
+                [InlineKeyboardButton("🏠 Back to Menu", callback_data="back_menu")]
+            ])
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+    except Exception as e:
+        print(f"Message update error: {e}")
+
+
+# --- Back to menu button ---
+@app.on_callback_query(filters.regex("^back_menu$"))
+async def back_menu(_, query):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(name, callback_data=f"deploy:{name}")]
+        for name in PROJECTS.keys()
+    ])
+    await query.message.edit_text(
+        "📋 <b>Render Projects</b>\nSelect one to redeploy:",
+        reply_markup=keyboard
+    )
+
+
+# --- Run the bot ---
+print("✅ Bot is running...")
+app.run()
             f"⏳ Redeploying <b>{project_name}</b> ...",
             parse_mode=ParseMode.HTML
         )
