@@ -6,6 +6,7 @@ from datetime import datetime
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from dotenv import load_dotenv
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -129,11 +130,21 @@ async def check_all_and_update_channel(send_notifications: bool = True):
     return statuses, redeploy_results
 
 # ---------------- SCHEDULER ----------------
+# ---------------- SCHEDULER ----------------
+from apscheduler.triggers.interval import IntervalTrigger
+
 scheduler = AsyncIOScheduler()
+
 def start_scheduler():
-    scheduler.add_job(lambda: asyncio.create_task(check_all_and_update_channel(send_notifications=True)),
-                      "interval", minutes=CHECK_INTERVAL_MINUTES, id="auto_check_job", replace_existing=True)
+    scheduler.add_job(
+        check_all_and_update_channel,
+        trigger=IntervalTrigger(minutes=CHECK_INTERVAL_MINUTES),
+        kwargs={"send_notifications": True},
+        id="auto_check_job",
+        replace_existing=True,
+    )
     scheduler.start()
+    logging.info("✅ Scheduler started — will check every %s minute(s).", CHECK_INTERVAL_MINUTES)
 
 # ---------------- TELEGRAM HANDLERS ----------------
 @app.on_message(filters.command("start") & filters.user(OWNER_ID))
