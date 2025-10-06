@@ -30,45 +30,96 @@ PROJECTS = {
     # ➕ Add more projects below
 }
 
-app = Client("multi_render_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client(
+    "multi_render_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
+    parse_mode=ParseMode.HTML   # Use enum-based parse mode ✅
+)
 
-# Function to trigger Render redeploy
-async def trigger_render_deploy(service_id: str, api_key: str) -> str:
-    url = f"https://api.render.com/deploy/{service_id}?key={api_key}"
-    async with httpx.AsyncClient(timeout=30) as client:
+
+# --- Helper: Trigger Render deploy ---
+async def trigger_render_deploy(url: str) -> str:
+    async with aiohttp.ClientSession() as session:
         try:
-            r = await client.post(url)
-            if r.status_code in [200, 201, 202]:
-                return f"✅ Deploy started for `{service_id}` (HTTP {r.status_code})"
-            else:
-                return f"⚠️ Failed (HTTP {r.status_code})\nResponse: {r.text}"
+            async with session.post(url) as resp:
+                if resp.status == 200:
+                    return "✅ Successfully triggered redeploy on Render!"
+                else:
+                    text = await resp.text()
+                    return f"❌ Failed ({resp.status}): {text}"
         except Exception as e:
-            return f"❌ Error: {e}"
+            return f"⚠️ Error: {e}"
 
-# /start
+
+# --- /start command ---
 @app.on_message(filters.command("start") & filters.user(OWNER_ID))
-async def start(_, msg):
-    await msg.reply_text(
-        "👋 Welcome! This bot can redeploy your multiple Render projects.\nUse /redeploy to view all."
+async def start_command(_, message):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(name, callback_data=f"deploy:{name}")]
+        for name in PROJECTS.keys()
+    ])
+    await message.reply_text(
+        "👋 <b>Welcome!</b>\nChoose a project below to redeploy on Render:",
+        reply_markup=keyboard
     )
 
-# /redeploy command → show all projects
-@app.on_message(filters.command("redeploy") & filters.user(OWNER_ID))
-async def redeploy_list(_, msg):
-    buttons = []
-    for name, info in PROJECTS.items():
-        buttons.append([
-            InlineKeyboardButton(f"🚀 {name}", callback_data=f"deploy:{name}")
-        ])
-    await msg.reply_text(
-        "Select a project to redeploy 👇",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
 
-# Handle button press
-@app.on_callback_query(filters.user(OWNER_ID))
+# --- Inline button handler ---
+@app.on_callback_query(filters.regex(r"^deploy:(.+)"))
 async def deploy_button(_, query):
-    data = query.data
+    project_name = query.data.split(":", 1)[1]
+    deploy_url = PROJECTS.get(project_name)
+
+    if not deploy_url:
+        await query.answer("❌ Project not found!", show_alert=True)
+        return
+
+    try:
+        await query.message.edit_text(
+            f"⏳ Redeploying <b>{project_name}</b> ...",
+            parse_mode=ParseMode.HTML
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+    except Exception as e:
+        print(f"Edit error: {e}")
+
+    # Trigger deploy
+    result = await trigger_render_deploy(deploy_url)
+
+    try:
+        await query.message.edit_text(
+            f"<b>{project_name}</b>\n\n{result}",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔁 Redeploy Again", callback_data=f"deploy:{project_name}")],
+                [InlineKeyboardButton("🏠 Back to Menu", callback_data="back_menu")]
+            ])
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+    except Exception as e:
+        print(f"Message update error: {e}")
+
+
+# --- Back to menu button ---
+@app.on_callback_query(filters.regex("^back_menu$"))
+async def back_menu(_, query):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(name, callback_data=f"deploy:{name}")]
+        for name in PROJECTS.keys()
+    ])
+    await query.message.edit_text(
+        "📋 <b>Render Projects</b>\nSelect one to redeploy:",
+        reply_markup=keyboard
+    )
+
+
+# --- Run the bot ---
+print("✅ Bot is running...")
+app.run()
     if not data.startswith("deploy:"):
         await query.answer("Invalid data.", show_alert=True)
         return
