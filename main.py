@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
+from projects import PROJECTS
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -25,17 +26,6 @@ STATUS_MESSAGE_ID = 345
 CHECK_INTERVAL_MINUTES = 60
 PAGE_SIZE = 10
 
-# ---------------- PROJECTS ----------------
-PROJECTS = {
-    "File Streamer": {
-        "app_url": "https://file-strra.onrender.com",
-        "deploy_url": "https://api.render.com/deploy/srv-cj8tea8eba7s73fvadu0?key=aZgM2q3f5pY"
-    },
-    "Video Stream": {
-        "app_url": "https://video-strra.onrender.com",
-        "deploy_url": "https://api.render.com/deploy/srv-cpuduhdjbks73efe7a0?key=PkNRRjskswGAo"
-    },
-}
 
 # ---------------- STATE ----------------
 UI_STATE = {"page": 0}  # PM pagination
