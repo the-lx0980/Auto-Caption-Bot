@@ -1,11 +1,11 @@
 PROJECTS = {
     "File Streamer": {
-        "deploy_url": "https://api.render.com/deploy/srv-cj8tea8eba7s73fvadu0?key=aZgM2q3f5pY",
         "app_url": "https://webxzonebot.onrender.com"
+        "deploy_url": "https://api.render.com/deploy/srv-cj8tea8eba7s73fvadu0?key=aZgM2q3f5pY",
     },
     "Channel Clone": {
-        "deploy_url": "https://api.render.com/deploy/srv-cs7j8lbv2p9s73f3dksg?key=Midzpimsd88",
         "app_url": "https://the-cloner-boy-cx2q.onrender.com"
+        "deploy_url": "https://api.render.com/deploy/srv-cs7j8lbv2p9s73f3dksg?key=Midzpimsd88",
     }, 
     "Uptime Monitor": {
         "app_url": "https://uptime-monitor1.onrender.com",
