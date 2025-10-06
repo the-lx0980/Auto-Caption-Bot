@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_ID = int(os.getenv("API_ID", "17567701"))
-API_HASH = os.getenv("API_HASH", "751e7a1469a1099fb3748c5ca755e918")
+API_ID = int(os.getenv("API_ID", ""))
+API_HASH = os.getenv("API_HASH", "")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID", "5326801541"))
+OWNER_ID = int(os.getenv("OWNER_ID", ""))
 
 PROJECTS = {
     "File Streamer": "https://api.render.com/deploy/srv-cj8tea8eba7s73fvadu0?key=aZgM2q3f5pY",
