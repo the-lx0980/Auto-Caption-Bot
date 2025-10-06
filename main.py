@@ -223,6 +223,8 @@ async def block_unauth(_, msg):
 
 # ---------------- STARTUP ----------------
 async def main():
+    global http_client
+    http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
     await app.start()
     logging.info("Bot started.")
     start_scheduler()
@@ -233,8 +235,5 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    finally:
-        try:
-            asyncio.get_event_loop().run_until_complete(http_client.aclose())
-        except Exception:
-            pass
+    except KeyboardInterrupt:
+        logging.info("Bot stopped manually.")
