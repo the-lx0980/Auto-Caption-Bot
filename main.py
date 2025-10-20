@@ -1,11 +1,11 @@
 from pyrogram import Client, filters, enums
 from os import environ
 
-app_id = int(environ.get('API_ID'))
-api_hash = environ.get('API_HASH')
+app_id = 24456380
+api_hash = "fe4d4eb35510370ea1073fbcb36e1fcc"
 bot_token = environ.get('BOT_TOKEN')
-chat_id = int(environ.get('TO_CHAT'))
-from_chat_id = int(environ.get('FROM_CHAT'))
+chat_id = 
+from_chat_id = 
 
 app = Client(    
     name='webxzonebot',
