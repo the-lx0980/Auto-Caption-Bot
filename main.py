@@ -1,139 +1,35 @@
-import os
-import asyncio
-import logging
-from datetime import datetime
-from math import ceil
+from pyrogram import Client, filters, enums
+from os import environ
 
-import httpx
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from dotenv import load_dotenv
-from pyrogram import Client
-from pyrogram.enums import ParseMode
-from projects import PROJECTS
+app_id = int(environ.get('API_ID'))
+api_hash = environ.get('API_HASH')
+bot_token = environ.get('BOT_TOKEN')
+chat_id = int(environ.get('TO_CHAT'))
+from_chat_id = int(environ.get('FROM_CHAT'))
 
-load_dotenv()
-logging.basicConfig(level=logging.INFO)
+app = Client(    
+    name='webxzonebot',
+    api_id=app_id,
+    api_hash=api_hash,
+    bot_token=bot_token
+)
 
-# ---------------- CONFIG ----------------
-API_ID = int(os.getenv("API_ID", "17567701"))
-API_HASH = os.getenv("API_HASH", "751e7a1469a1099fb3748c5ca755e918")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID", "5326801541"))
-
-STATUS_CHANNEL_ID = -1001572995585
-STATUS_MESSAGE_ID = 22
-CHECK_INTERVAL_MINUTES = 1
-PAGE_SIZE = 10
-
-# ---------------- GLOBAL STATE ----------------
-HTTP_TIMEOUT = 10
-http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
-app = Client("render_manager_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-
-# ---------------- HELPERS ----------------
-async def check_app_status(app_url: str) -> str:
+@app.on_message(filters.channel)
+async def forward(bot, message):
     try:
-        r = await http_client.get(app_url)
-        if r.status_code == 200:
-            return "Online"
-        else:
-            return f"Unstable ({r.status_code})"
-    except Exception:
-        return "Down"
-
-async def trigger_render_deploy(deploy_url: str) -> str:
-    try:
-        r = await http_client.post(deploy_url, timeout=30)
-        if r.status_code == 200:
-            return "Redeploy triggered ✅"
-        else:
-            return f"Deploy failed ({r.status_code})"
-    except Exception as e:
-        return f"Error: {e}"
-
-def build_status_page(project_names, statuses):
-    total = len(project_names)
-    pages = max(1, ceil(total / PAGE_SIZE))
-    lines = []
-
-    for idx, name in enumerate(project_names, start=1):
-        status = statuses.get(name, "Unknown")
-        emoji = "🟢" if status == "Online" else ("🟡" if status.startswith("Unstable") else "🔴")
-        lines.append(f"{idx}. <b>{name}</b> — {emoji} {status}")
-
-    header = (
-        f"📊 <b>Project Status</b>\n"
-        f"Last checked: <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>\n\n"
-    )
-    body = "\n".join(lines) if lines else "No projects to display."
-    footer = f"\n\nTotal projects: {total}"
-    return header + body + footer
-
-# ---------------- CORE ----------------
-async def check_all_and_update_channel(send_notifications: bool = True):
-    logging.info("Running periodic check_all_and_update_channel()")
-    project_names = list(PROJECTS.keys())
-    statuses = {}
-    redeploy_results = {}
-
-    for name in project_names:
-        statuses[name] = await check_app_status(PROJECTS[name]["app_url"])
-
-    # Auto redeploy if down
-    for name, status in statuses.items():
-        if status == "Down":
-            result = await trigger_render_deploy(PROJECTS[name]["deploy_url"])
-            redeploy_results[name] = result
-            logging.warning(f"⚠️ {name} was Down — {result}")
-
-    # Update channel message
-    text = build_status_page(project_names, statuses)
-    try:
-        await app.edit_message_text(
-            chat_id=STATUS_CHANNEL_ID,
-            message_id=STATUS_MESSAGE_ID,
-            text=text,
-            parse_mode=ParseMode.HTML,
+        await bot.copy_message(
+            chat_id=chat_id,
+            from_chat_id=from_chat_id,
+            caption=f'**{message.caption}**',
+            message_id=message.id,
+            parse_mode=enums.ParseMode.MARKDOWN            
         )
-        logging.info("✅ Channel status message updated.")
     except Exception as e:
-        logging.error(f"Failed to edit channel message: {e}")
+        print(f'{e}')
 
-    return statuses, redeploy_results
+@app.on_message(filters.command('start') & filters.user(5163706369))
+async def start(bot, message):
+    await message.reply('Alive')
 
-# ---------------- SCHEDULER ----------------
-scheduler = AsyncIOScheduler()
-
-def start_scheduler(loop):
-    async def run_periodic_check():
-        await check_all_and_update_channel(send_notifications=True)
-
-    scheduler.add_job(
-        lambda: asyncio.run_coroutine_threadsafe(run_periodic_check(), loop),
-        trigger=IntervalTrigger(minutes=CHECK_INTERVAL_MINUTES),
-        id="auto_check_job",
-        replace_existing=True,
-    )
-    scheduler.start()
-    logging.info(f"✅ Scheduler started — checking every {CHECK_INTERVAL_MINUTES} minute(s).")
-
-# ---------------- STARTUP ----------------
-async def main():
-    await app.start()
-    logging.info("🤖 Bot started.")
-
-    loop = asyncio.get_running_loop()
-    start_scheduler(loop)
-
-    # First check immediately
-    await check_all_and_update_channel(send_notifications=False)
-
-    logging.info("Entering idle loop...")
-    await asyncio.Event().wait()
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logging.info("Bot stopped manually.")
+print('Bot Started!')
+app()
