@@ -65,7 +65,7 @@ async def forward(bot, message):
             return
 
         # Use AI to extract and format new caption
-        new_caption = extract_caption_ai(message.caption)
+        new_caption = await extract_caption_ai(message.caption)
         print(f"Old: {message.caption}\nNew: {new_caption}\n{'-'*40}")
 
         # Forward the message to target channel
