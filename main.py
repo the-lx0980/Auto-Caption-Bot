@@ -27,7 +27,7 @@ async def forward(bot, message):
     except Exception as e:
         print(f'{e}')
 
-@app.on_message(filters.command('start') & filters.user(5163706369))
+@app.on_message(filters.command('start'))
 async def start(bot, message):
     await message.reply('Alive')
 
