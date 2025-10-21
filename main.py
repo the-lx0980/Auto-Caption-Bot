@@ -25,7 +25,7 @@ ai = OpenAI(api_key=OPENAI_API_KEY)
 # ───────────────────────────────
 async def extract_caption_ai(caption: str):
     prompt = f"""
-You are a movie and series caption analyzer.
+You are a highly accurate movie and series caption formatter.
 
 Your task:
 1. Detect whether the caption refers to a **movie** or a **series**.
@@ -42,24 +42,33 @@ Venom (2021) 1080p WEB-DL Dual Audio (Hindi + English)
 ────────────────────────────
 📺 FOR SERIES:
 Format:
-<Series Name> (<Year>) S<SeasonNo:02d> E<EpisodeNo:02d> <Quality> <Print> <Audio>
+<Series Name> (<Year>) S<SeasonNo:02d> [E<EpisodeNo:02d> or E<EpisodeRange>] <Quality> <Print> <Audio>
 
-Example:
+Examples:
 Loki (2023) S01 E03 1080p WEB-DL Dual Audio (Hindi + English)
+Squid Game (2025) S03 E01–E10 1080p DS4K DDP 5.1 Multi Audio (Hindi + English + Korean)
+Peacemaker (2025) S02 Complete 480p HEVC Dual Audio (Hindi + English)
 
-Notes:
-- Always write Season and Episode as S01, E01 (not “Season 1”, “Episode 1”)
-- “Season 11” → “S11”, “Episode 111” → “E111”
+────────────────────────────
+Formatting Rules:
+- Season format: S01, S02, … (not “Season 1”)
+- Episode format: E01, E02, … (not “Episode 1”)
+- Episode range (e.g. “E01 - E10”) → “E01–E10”
+- If “Complete” season is mentioned, include “Complete” after the season.
+- Audio:
+    - “[Hindi - English]” → “Dual Audio (Hindi + English)”
+    - “[Hindi - English - Korean]” → “Multi Audio (Hindi + English + Korean)”
+    - Include “DDP 5.1”, “ORG”, etc., after the print if present.
 - Keep spacing clean and consistent.
-- If data is missing, skip it gracefully (don’t guess).
-- Output plain text only (no Markdown or emojis).
+- Skip unknown or missing fields gracefully (do not guess).
+- Output plain text only (no Markdown, no emojis).
 
 ────────────────────────────
 Input caption:
 {caption}
 
-Now return only the formatted caption.
-    """
+Return only the cleaned and formatted caption.
+"""
 
     try:
         response = ai.chat.completions.create(
