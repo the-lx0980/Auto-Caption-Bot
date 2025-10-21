@@ -23,26 +23,43 @@ ai = OpenAI(api_key=OPENAI_API_KEY)
 # ───────────────────────────────
 # 🧠 AI FUNCTION - CAPTION PARSER
 # ───────────────────────────────
-async def extract_caption_ai(caption: str):
+def extract_caption_ai(caption: str):
     prompt = f"""
-You are a movie caption analyzer.
-Extract the following details accurately and create a neat caption:
-- Movie name
-- Release year
-- Quality (e.g. 720p, 1080p, 4K)
-- Audio languages (Hindi, English, Dual, etc.)
-- Size (if mentioned)
+You are a movie and series caption analyzer.
 
+Your task:
+1. Detect whether the caption refers to a **movie** or a **series**.
+2. Extract and reformat details properly using the following rules.
+
+────────────────────────────
+🎬 FOR MOVIES:
+Format:
+<Movie Name> (<Year>) <Quality> <Print> <Audio>
+
+Example:
+Venom (2021) 1080p WEB-DL Dual Audio (Hindi + English)
+
+────────────────────────────
+📺 FOR SERIES:
+Format:
+<Series Name> (<Year>) S<SeasonNo:02d> E<EpisodeNo:02d> <Quality> <Print> <Audio>
+
+Example:
+Loki (2023) S01 E03 1080p WEB-DL Dual Audio (Hindi + English)
+
+Notes:
+- Always write Season and Episode as S01, E01 (not “Season 1”, “Episode 1”)
+- “Season 11” → “S11”, “Episode 111” → “E111”
+- Keep spacing clean and consistent.
+- If data is missing, skip it gracefully (don’t guess).
+- Output plain text only (no Markdown or emojis).
+
+────────────────────────────
 Input caption:
 {caption}
 
-Return your answer in **pure text**, formatted nicely for Telegram.
-Example format:
-🎬 Movie Name (2024)
-📽️ 1080p WEB-DL | Dual Audio (Hindi + English)
-📦 Size: 2.3GB
-#Action #Movie
-"""
+Now return only the formatted caption.
+    """
 
     try:
         response = ai.chat.completions.create(
@@ -52,7 +69,7 @@ Example format:
         return response.choices[0].message.content.strip()
     except Exception as e:
         print("AI Error:", e)
-        return caption  # fallback to original caption if AI fails
+        return caption  # fallback if AI fails
 
 
 # ───────────────────────────────
