@@ -1,139 +1,111 @@
-import os
-import asyncio
-import logging
-from datetime import datetime
-from math import ceil
+from pyrogram import Client, filters, enums
+from os import environ
+from openai import OpenAI
 
-import httpx
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from dotenv import load_dotenv
-from pyrogram import Client
-from pyrogram.enums import ParseMode
-from projects import PROJECTS
+# ───────────────────────────────
+# 🔧 CONFIG
+# ───────────────────────────────
+API_ID = 24456380
+API_HASH = "fe4d4eb35510370ea1073fbcb36e1fcc"
+BOT_TOKEN = environ.get("BOT_TOKEN")
 
-load_dotenv()
-logging.basicConfig(level=logging.INFO)
+FROM_CHAT_ID = -1001572995585   # Source channel
+TO_CHAT_ID = -1001592628992     # Target channel
 
-# ---------------- CONFIG ----------------
-API_ID = int(os.getenv("API_ID", "17567701"))
-API_HASH = os.getenv("API_HASH", "751e7a1469a1099fb3748c5ca755e918")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID", "5326801541"))
+OPENAI_API_KEY = environ.get("OPENAI_API_KEY")
 
-STATUS_CHANNEL_ID = -1001572995585
-STATUS_MESSAGE_ID = 22
-CHECK_INTERVAL_MINUTES = 1
-PAGE_SIZE = 10
+# ───────────────────────────────
+# 🚀 INITIALIZE
+# ───────────────────────────────
+app = Client("webxzonebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+ai = OpenAI(api_key=OPENAI_API_KEY)
 
-# ---------------- GLOBAL STATE ----------------
-HTTP_TIMEOUT = 10
-http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
-app = Client("render_manager_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# ───────────────────────────────
+# 🧠 AI FUNCTION - CAPTION PARSER
+# ───────────────────────────────
+async def extract_caption_ai(caption: str):
+    prompt = f"""
+You are a movie and series caption analyzer.
 
-# ---------------- HELPERS ----------------
-async def check_app_status(app_url: str) -> str:
+Your task:
+1. Detect whether the caption refers to a **movie** or a **series**.
+2. Extract and reformat details properly using the following rules.
+
+────────────────────────────
+🎬 FOR MOVIES:
+Format:
+<Movie Name> (<Year>) <Quality> <Print> <Audio>
+
+Example:
+Venom (2021) 1080p WEB-DL Dual Audio (Hindi + English)
+
+────────────────────────────
+📺 FOR SERIES:
+Format:
+<Series Name> (<Year>) S<SeasonNo:02d> E<EpisodeNo:02d> <Quality> <Print> <Audio>
+
+Example:
+Loki (2023) S01 E03 1080p WEB-DL Dual Audio (Hindi + English)
+
+Notes:
+- Always write Season and Episode as S01, E01 (not “Season 1”, “Episode 1”)
+- “Season 11” → “S11”, “Episode 111” → “E111”
+- Keep spacing clean and consistent.
+- If data is missing, skip it gracefully (don’t guess).
+- Output plain text only (no Markdown or emojis).
+
+────────────────────────────
+Input caption:
+{caption}
+
+Now return only the formatted caption.
+    """
+
     try:
-        r = await http_client.get(app_url)
-        if r.status_code == 200:
-            return "Online"
-        else:
-            return f"Unstable ({r.status_code})"
-    except Exception:
-        return "Down"
-
-async def trigger_render_deploy(deploy_url: str) -> str:
-    try:
-        r = await http_client.post(deploy_url, timeout=30)
-        if r.status_code == 200:
-            return "Redeploy triggered ✅"
-        else:
-            return f"Deploy failed ({r.status_code})"
-    except Exception as e:
-        return f"Error: {e}"
-
-def build_status_page(project_names, statuses):
-    total = len(project_names)
-    pages = max(1, ceil(total / PAGE_SIZE))
-    lines = []
-
-    for idx, name in enumerate(project_names, start=1):
-        status = statuses.get(name, "Unknown")
-        emoji = "🟢" if status == "Online" else ("🟡" if status.startswith("Unstable") else "🔴")
-        lines.append(f"{idx}. <b>{name}</b> — {emoji} {status}")
-
-    header = (
-        f"📊 <b>Project Status</b>\n"
-        f"Last checked: <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>\n\n"
-    )
-    body = "\n".join(lines) if lines else "No projects to display."
-    footer = f"\n\nTotal projects: {total}"
-    return header + body + footer
-
-# ---------------- CORE ----------------
-async def check_all_and_update_channel(send_notifications: bool = True):
-    logging.info("Running periodic check_all_and_update_channel()")
-    project_names = list(PROJECTS.keys())
-    statuses = {}
-    redeploy_results = {}
-
-    for name in project_names:
-        statuses[name] = await check_app_status(PROJECTS[name]["app_url"])
-
-    # Auto redeploy if down
-    for name, status in statuses.items():
-        if status == "Down":
-            result = await trigger_render_deploy(PROJECTS[name]["deploy_url"])
-            redeploy_results[name] = result
-            logging.warning(f"⚠️ {name} was Down — {result}")
-
-    # Update channel message
-    text = build_status_page(project_names, statuses)
-    try:
-        await app.edit_message_text(
-            chat_id=STATUS_CHANNEL_ID,
-            message_id=STATUS_MESSAGE_ID,
-            text=text,
-            parse_mode=ParseMode.HTML,
+        response = ai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
         )
-        logging.info("✅ Channel status message updated.")
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        logging.error(f"Failed to edit channel message: {e}")
+        print("AI Error:", e)
+        return caption  # fallback if AI fails
 
-    return statuses, redeploy_results
 
-# ---------------- SCHEDULER ----------------
-scheduler = AsyncIOScheduler()
-
-def start_scheduler(loop):
-    async def run_periodic_check():
-        await check_all_and_update_channel(send_notifications=True)
-
-    scheduler.add_job(
-        lambda: asyncio.run_coroutine_threadsafe(run_periodic_check(), loop),
-        trigger=IntervalTrigger(minutes=CHECK_INTERVAL_MINUTES),
-        id="auto_check_job",
-        replace_existing=True,
-    )
-    scheduler.start()
-    logging.info(f"✅ Scheduler started — checking every {CHECK_INTERVAL_MINUTES} minute(s).")
-
-# ---------------- STARTUP ----------------
-async def main():
-    await app.start()
-    logging.info("🤖 Bot started.")
-
-    loop = asyncio.get_running_loop()
-    start_scheduler(loop)
-
-    # First check immediately
-    await check_all_and_update_channel(send_notifications=False)
-
-    logging.info("Entering idle loop...")
-    await asyncio.Event().wait()
-
-if __name__ == "__main__":
+# ───────────────────────────────
+# 📦 MESSAGE HANDLER
+# ───────────────────────────────
+@app.on_message(filters.channel)
+async def forward(bot, message):
     try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logging.info("Bot stopped manually.")
+        if not message.caption:
+            return
+
+        new_caption = await extract_caption_ai(message.caption)
+        print(f"Old: {message.caption}\nNew: {new_caption}\n{'-'*40}")
+
+        await bot.copy_message(
+            chat_id=TO_CHAT_ID,
+            from_chat_id=FROM_CHAT_ID,
+            message_id=message.id,
+            caption=new_caption,
+            parse_mode=enums.ParseMode.MARKDOWN
+        )
+
+    except Exception as e:
+        print(f"Error forwarding: {e}")
+
+
+# ───────────────────────────────
+# 🔄 START COMMAND
+# ───────────────────────────────
+@app.on_message(filters.command("start"))
+async def start(bot, message):
+    await message.reply("✅ Bot is Alive and Ready!")
+
+
+# ───────────────────────────────
+# ▶️ RUN BOT
+# ───────────────────────────────
+print("🤖 Bot Started!")
+app.run()
