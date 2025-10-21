@@ -23,7 +23,7 @@ ai = OpenAI(api_key=OPENAI_API_KEY)
 # ───────────────────────────────
 # 🧠 AI FUNCTION - CAPTION PARSER
 # ───────────────────────────────
-def extract_caption_ai(caption: str):
+async def extract_caption_ai(caption: str):
     prompt = f"""
 You are a movie and series caption analyzer.
 
