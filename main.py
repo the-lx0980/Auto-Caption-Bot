@@ -12,7 +12,7 @@ BOT_TOKEN = environ.get("BOT_TOKEN")
 FROM_CHAT_ID = -1001572995585   # Source channel
 TO_CHAT_ID = -1001592628992     # Target channel
 
-
+app = Client("webxzonebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 
 @app.on_message(filters.channel)
