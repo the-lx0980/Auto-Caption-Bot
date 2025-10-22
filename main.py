@@ -2,8 +2,6 @@ import logging
 import requests
 from pyrogram import Client, filters, enums
 from os import environ
-from openai import OpenAI
-
 # ───────────────────────────────
 # 🔧 CONFIG
 # ───────────────────────────────
