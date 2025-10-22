@@ -152,11 +152,25 @@ def get_anime_season_year(title: str, season_number: int) -> int | None:
 # --------------------------
 anime_list = [
     ("Attack on Titan", 4),
-    ("One Punch Man", 2),
-    ("My Hero Academia", 5),
-    ("Demon Slayer", 2),
-    ("Jujutsu Kaisen", 1),
+    ("One Piece", 26),  # Long running, ongoing
+    ("Naruto Shippuden", 21),
+    ("Boruto: Naruto Next Generations", 3),
+    ("One Punch Man", 3),
+    ("My Hero Academia", 6),
+    ("Demon Slayer", 3),
+    ("Jujutsu Kaisen", 2),
+    ("Tokyo Revengers", 2),
+    ("Spy x Family", 2),
+    ("Chainsaw Man", 1),
+    ("Bleach", 17),  # Thousand-Year Blood War arc
+    ("Dragon Ball Super", 6),
     ("Rent-A-Girlfriend", 4),
+    ("Black Clover", 5),
+    ("Re:Zero − Starting Life in Another World", 3),
+    ("The Rising of the Shield Hero", 3),
+    ("Sword Art Online", 4),
+    ("Fullmetal Alchemist: Brotherhood", 1),
+    ("Code Geass: Lelouch of the Rebellion", 2),
 ]
 
 for anime, season in anime_list:
