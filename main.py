@@ -1,3 +1,5 @@
+import logging
+import requests
 from pyrogram import Client, filters, enums
 from os import environ
 from openai import OpenAI
@@ -14,6 +16,15 @@ TO_CHAT_ID = -1001592628992     # Target channel
 
 app = Client("webxzonebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
+# ───────────────────────────────
+# 📌 Logging Setup
+# ───────────────────────────────
+logging.basicConfig(
+    level=logging.INFO, 
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 @app.on_message(filters.channel)
 async def forward(bot, message):
@@ -24,35 +35,23 @@ async def forward(bot, message):
             chat_id=TO_CHAT_ID,
             from_chat_id=FROM_CHAT_ID,
             message_id=message.id,
-            caption=new_caption,
+            caption=message.caption,  # aap new_caption use kar rahe the, ensure defined
             parse_mode=enums.ParseMode.MARKDOWN
         )
-
+        logger.info(f"Message forwarded from {FROM_CHAT_ID} to {TO_CHAT_ID}")
     except Exception as e:
-        print(f"Error forwarding: {e}")
+        logger.error(f"Error forwarding message: {e}")
 
 
-# ───────────────────────────────
-# 🔄 START COMMAND
-# ───────────────────────────────
 @app.on_message(filters.command("start"))
 async def start(bot, message):
     await message.reply("✅ Bot is Alive and Ready!")
+    logger.info(f"/start command received from {message.from_user.id}")
 
-
-import requests
 
 ANILIST_API_URL = "https://graphql.anilist.co"
 
 def generate_search_titles(title: str, season_number: int):
-    """
-    Generate all possible search variations automatically.
-    Includes:
-      - English variations (Season, Part, Arc, TV Season, Special Season, Final Season)
-      - Different casing
-      - Romaji / Native title
-      - AniList synonyms
-    """
     base_variations = [
         f"{title} Season {season_number}",
         f"{title} Part {season_number}",
@@ -64,12 +63,10 @@ def generate_search_titles(title: str, season_number: int):
         f"{title} Special Season {season_number}",
     ]
 
-    # Case variations
     variations = []
     for v in base_variations:
         variations += [v, v.lower(), v.upper(), v.title()]
 
-    # Fetch romaji/native titles + synonyms from AniList
     query = '''
     query ($search: String) {
       Media(search: $search, type: ANIME) {
@@ -100,16 +97,14 @@ def generate_search_titles(title: str, season_number: int):
                         f"{t} TV Season {season_number}",
                         f"{t} Special Season {season_number}"
                     ]
-
-            # Add case variations
             for t in titles_to_add:
                 variations += [t, t.lower(), t.upper(), t.title()]
 
-    except requests.RequestException:
-        pass
+    except requests.RequestException as e:
+        logger.warning(f"Error fetching AniList titles for '{title}': {e}")
 
-    # Remove duplicates while preserving order
     return list(dict.fromkeys(variations))
+
 
 def get_anime_season_year(title: str, season_number: int) -> int | None:
     search_titles = generate_search_titles(title, season_number)
@@ -130,25 +125,22 @@ def get_anime_season_year(title: str, season_number: int) -> int | None:
             if media:
                 year = media.get("startDate", {}).get("year")
                 if year:
-                    # Clean output: avoid "Final Season Season N"
                     title_out = media['title']['romaji']
                     if "Final Season" in title_out:
-                        print(f"✅ {title_out} ({year})")
+                        logger.info(f"✅ {title_out} ({year})")
                     else:
-                        print(f"✅ {title_out} Season {season_number}: {year}")
+                        logger.info(f"✅ {title_out} Season {season_number}: {year}")
                     return year
         except requests.RequestException:
             continue
 
-    print(f"❌ No data found for '{title}' Season {season_number}")
+    logger.warning(f"❌ No data found for '{title}' Season {season_number}")
     return None
 
-# --------------------------
-# Example usage
-# --------------------------
+
 anime_list = [
     ("Attack on Titan", 4),
-    ("One Piece", 26),  # Long running, ongoing
+    ("One Piece", 26),
     ("Naruto Shippuden", 21),
     ("Boruto: Naruto Next Generations", 3),
     ("One Punch Man", 3),
@@ -158,7 +150,7 @@ anime_list = [
     ("Tokyo Revengers", 2),
     ("Spy x Family", 2),
     ("Chainsaw Man", 1),
-    ("Bleach", 17),  # Thousand-Year Blood War arc
+    ("Bleach", 17),
     ("Dragon Ball Super", 6),
     ("Rent-A-Girlfriend", 4),
     ("Black Clover", 5),
@@ -171,9 +163,6 @@ anime_list = [
 
 for anime, season in anime_list:
     get_anime_season_year(anime, season)
-    
-# ───────────────────────────────
-# ▶️ RUN BOT
-# ───────────────────────────────
-print("🤖 Bot Started!")
+
+logger.info("🤖 Bot Started!")
 app.run()
