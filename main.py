@@ -48,7 +48,7 @@ import requests
 
 ANILIST_API_URL = "https://graphql.anilist.co"
 
-async def generate_search_titles(title: str, season_number: int):
+def generate_search_titles(title: str, season_number: int):
     """
     Generate all possible search variations automatically.
     Includes:
