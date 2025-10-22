@@ -20,10 +20,6 @@ async def forward(bot, message):
     try:
         if not message.caption:
             return
-
-        new_caption = await extract_caption_ai(message.caption)
-        print(f"Old: {message.caption}\nNew: {new_caption}\n{'-'*40}")
-
         await bot.copy_message(
             chat_id=TO_CHAT_ID,
             from_chat_id=FROM_CHAT_ID,
