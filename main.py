@@ -13,11 +13,11 @@ API_ID = 37427575
 API_HASH = "30c8070bf74cb5f499c6305c9bfb9717"
 BOT_TOKEN = environ.get("BOT_TOKEN")
 USERBOT_STRING = environ.get("USERBOT_STRING")
+MSG_ID = 25864
 
 WHITELIST_USERS = {
-    5163706369,
-    1985266909,
-    2081245581
+    6804133304,
+    6446224566
 }
 
 # ---------------- LOGGING ---------------- #
@@ -115,7 +115,10 @@ async def delete_all_handler(client: Client, msg: Message):
         # ❌ don't delete status message
         if m.id == status.id:
             continue
-
+            
+        if m.id == MSG_ID:
+            continue  
+            
         if not m.from_user:
             continue
 
