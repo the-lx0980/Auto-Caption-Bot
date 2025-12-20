@@ -1,113 +1,122 @@
-import logging
-import requests
-from pyrogram import Client, filters, enums, Message
-from os import environ
 import asyncio
 import logging
-from userbot import userbot
-from pyrogram.errors import UserAlreadyParticipant, FloodWait
-from pyrogram.enums import ChatType, ChatMemberStatus
+from os import environ
 
+from pyrogram import Client, filters
+from pyrogram.enums import ChatMemberStatus
+from pyrogram.errors import FloodWait, UserAlreadyParticipant
+from pyrogram.types import Message
 
-API_ID = 24456380
-API_HASH = "fe4d4eb35510370ea1073fbcb36e1fcc"
+# ---------------- CONFIG ---------------- #
+
+API_ID = 37427575
+API_HASH = "30c8070bf74cb5f499c6305c9bfb9717"
 BOT_TOKEN = environ.get("BOT_TOKEN")
 
 
-app = Client("webxzonebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+USERBOT_STRING = environ.get("USERBOT_STRING")
+
+# IDs whose messages will NOT be deleted
+WHITELIST_USERS = {
+    5163706369,
+    1985266909,
+    2081245581
+}
+
+# ---------------- LOGGING ---------------- #
 
 logging.basicConfig(
-    level=logging.INFO, 
+    level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
-@Stark.cmd("delall", description="Delete all messages in a group/channel")
-async def main_func(bot: Stark, msg: Message):
+# ---------------- CLIENTS ---------------- #
 
-    # Ignore private chats
-    if msg.chat.type == ChatType.PRIVATE:
-        return
+bot = Client(
+    "delete_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
 
-    # Admin check (for groups)
-    if msg.chat.type != ChatType.CHANNEL:
-        user = await bot.get_chat_member(msg.chat.id, msg.from_user.id)
+userbot = Client(
+    name="delete_userbot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    session_string=USERBOT_STRING
+)
 
-        if user.status not in (
-            ChatMemberStatus.CREATOR,
-            ChatMemberStatus.ADMINISTRATOR
-        ):
-            return
 
-        if not user.privileges or not user.privileges.can_delete_messages:
-            await msg.react("You don't have `CanDeleteMessages` right.")
-            return
+@bot.on_message(filters.command("delall") & filters.group)
+async def delete_all_handler(client: Client, msg: Message):
 
-    # Bot admin check
-    bot_id = (await bot.get_me()).id
-    cm = await bot.get_chat_member(msg.chat.id, bot_id)
+    chat_id = msg.chat.id
 
-    if cm.status != ChatMemberStatus.ADMINISTRATOR:
-        await msg.react("I'm not admin here!")
-        return
+    # Admin check
+    member = await client.get_chat_member(chat_id, msg.from_user.id)
+    if member.status not in (
+        ChatMemberStatus.ADMINISTRATOR,
+        ChatMemberStatus.OWNER
+    ):
+        return await msg.reply("❌ Admin only command")
 
-    if not cm.privileges or not cm.privileges.can_delete_messages:
-        await msg.react("I need delete messages permission.")
-        return
+    if not member.privileges or not member.privileges.can_delete_messages:
+        return await msg.reply("❌ No delete permission")
 
-    if not cm.privileges.can_promote_members:
-        await msg.react("I need promote members permission.")
-        return
+  
+    bot_id = (await client.get_me()).id
+    bot_member = await client.get_chat_member(chat_id, bot_id)
 
-    # Join via userbot
-    link = (await bot.get_chat(msg.chat.id)).invite_link
+    if bot_member.status != ChatMemberStatus.ADMINISTRATOR:
+        return await msg.reply("❌ I'm not admin")
+
+    if not bot_member.privileges.can_delete_messages:
+        return await msg.reply("❌ I need delete permission")
+
+    await userbot.start()
+
     try:
-        await userbot.join_chat(link)
+        await userbot.join_chat(chat_id)
     except UserAlreadyParticipant:
         pass
 
-    # Promote userbot
-    userbot_id = (await userbot.get_me()).id
-    await bot.promote_chat_member(
-        msg.chat.id,
-        userbot_id,
-        can_delete_messages=True
-    )
+    status = await msg.reply("🧹 Deleting messages...")
 
-    # Collect message IDs
-    message_ids = []
+    deleted = 0
+    skipped = 0
 
-    while True:
+    async for m in userbot.get_chat_history(chat_id):
+
+        if not m.from_user:
+            continue
+
+        if m.from_user.id in WHITELIST_USERS:
+            skipped += 1
+            continue
+
         try:
-            async for m in userbot.get_chat_history(msg.chat.id):
-                message_ids.append(m.id)
-            break
+            await userbot.delete_messages(chat_id, m.id)
+            deleted += 1
+
         except FloodWait as e:
-            await msg.react(
-                f"FloodWait: wait {e.value} seconds.\nTelegram restriction."
-            )
             await asyncio.sleep(e.value)
 
-    # Split into chunks of 100
-    chunks = [
-        message_ids[i:i + 100]
-        for i in range(0, len(message_ids), 100)
-    ]
+        except Exception as e:
+            log.warning(e)
 
-    status = await msg.reply("🧹 Deleting all messages...")
+    await status.edit(
+        f"✅ Done\n\n"
+        f"🗑 Deleted: {deleted}\n"
+        f"⏭ Skipped: {skipped}"
+    )
 
-    # Delete messages
-    for chunk in chunks:
-        while True:
-            try:
-                await userbot.delete_messages(msg.chat.id, chunk)
-                break
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-                Stark.log(str(e), logging.WARNING)
+    await userbot.leave_chat(chat_id)
 
-    await status.delete()
-    await msg.react("✅ Successfully deleted everything!")
-    await userbot.leave_chat(msg.chat.id)
+async def main():
+    await userbot.start()
+    await bot.start()
+    log.info("Bot + Userbot started with STRING SESSION")
+    await asyncio.Event().wait()
 
-app.run() 
+bot.run(main())
