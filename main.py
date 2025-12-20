@@ -48,7 +48,15 @@ userbot = Client(
 async def start_handler(client: Client, msg: Message):
 
     if msg.from_user.id != OWNER_ID:
-        return await msg.reply("❌ You are not authorized to use this bot.")
+        text = "❌ This bot is personal/private use only.\n\n💡 Make your own using this repo.\nhttps://github.com/lx0980/group-delete-all"
+    else:
+        text = (
+            "👋 **Hello Owner!**\n\n"
+            "🧹 Use `/delgrpall` in groups where:\n"
+            "• Bot is admin\n"
+            "• Userbot can be invited\n\n"
+            "⚠️ Use carefully (FloodWait may occur)"
+        )
 
     buttons = InlineKeyboardMarkup(
         [
@@ -57,16 +65,12 @@ async def start_handler(client: Client, msg: Message):
             ],
             [
                 InlineKeyboardButton("📦 Source Code", url="https://github.com/lx0980/group-delete-all")
-           ]
+            ]
         ]
     )
 
     await msg.reply(
-        "👋 **Hello!**\n\n"
-        "🧹 Use `/delgrpall` in groups where:\n"
-        "• Bot is admin\n"
-        "• Userbot can be invited\n\n"
-        "⚠️ Use carefully (FloodWait may occur)",
+        text,
         reply_markup=buttons
     )
 
