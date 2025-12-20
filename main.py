@@ -178,7 +178,7 @@ async def delete_all_handler(client: Client, msg: Message):
 async def main():
     await userbot.start()
     await bot.start()
-    log.info("Bot + Userbot started successfully (Pyrogram v2)")
+    log.info("⚙️ Bot started successfully")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
