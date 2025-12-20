@@ -5,7 +5,7 @@ from os import environ
 from pyrogram import Client, filters
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait, UserAlreadyParticipant
-from pyrogram.types import Message
+from pyrogram.types import Message, ChatPrivileges
 
 # ---------------- CONFIG ---------------- #
 
@@ -73,25 +73,22 @@ async def delete_all_handler(client: Client, msg: Message):
         return await msg.reply("❌ I need delete permission")
 
     if not bot_member.privileges.can_invite_users:
-        return await msg.reply("❌ I need invite users permission")
+        return await msg.reply("❌ I need invite permission")
 
     if not bot_member.privileges.can_promote_members:
-        return await msg.reply("❌ I need promote members permission")
+        return await msg.reply("❌ I need promote permission")
 
     status = await msg.reply("🧹 Preparing deletion...")
 
-    # ---- Ensure userbot is member ----
     userbot_id = (await userbot.get_me()).id
     need_leave = False
 
+    # ---- Ensure userbot is member ----
     try:
         await client.get_chat_member(chat_id, userbot_id)
+
     except Exception:
-        # create invite link
-        invite = await client.create_chat_invite_link(
-            chat_id,
-            creates_join_request=False
-        )
+        invite = await client.create_chat_invite_link(chat_id)
 
         try:
             await userbot.join_chat(invite.invite_link)
@@ -99,11 +96,13 @@ async def delete_all_handler(client: Client, msg: Message):
         except UserAlreadyParticipant:
             pass
 
-        # promote userbot
+        # ✅ CORRECT PROMOTE (Pyrogram v2)
         await client.promote_chat_member(
             chat_id,
             userbot_id,
-            can_delete_messages=True
+            privileges=ChatPrivileges(
+                can_delete_messages=True
+            )
         )
 
     await status.edit("🧹 Deleting messages...")
@@ -113,7 +112,7 @@ async def delete_all_handler(client: Client, msg: Message):
 
     async for m in userbot.get_chat_history(chat_id):
 
-        # ❌ do NOT delete status message
+        # ❌ don't delete status message
         if m.id == status.id:
             continue
 
@@ -140,7 +139,6 @@ async def delete_all_handler(client: Client, msg: Message):
         f"⏭ Skipped: {skipped}"
     )
 
-    # ---- Leave chat if joined temporarily ----
     if need_leave:
         await userbot.leave_chat(chat_id)
 
@@ -149,7 +147,7 @@ async def delete_all_handler(client: Client, msg: Message):
 async def main():
     await userbot.start()
     await bot.start()
-    log.info("Bot + Userbot started successfully")
+    log.info("Bot + Userbot started successfully (Pyrogram v2)")
     await asyncio.Event().wait()
 
 bot.run(main())
