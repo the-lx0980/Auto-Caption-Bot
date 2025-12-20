@@ -5,21 +5,19 @@ from os import environ
 from pyrogram import Client, filters
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait, UserAlreadyParticipant
-from pyrogram.types import Message, ChatPrivileges
+from pyrogram.types import Message, ChatPrivileges, InlineKeyboardMarkup, InlineKeyboardButton
 
 # ---------------- CONFIG ---------------- #
 
-API_ID = 37427575
-API_HASH = "30c8070bf74cb5f499c6305c9bfb9717"
+API_ID = int(environ.get("API_ID", 0))
+API_HASH = environ.get("API_HASH", "")
 BOT_TOKEN = environ.get("BOT_TOKEN")
 USERBOT_STRING = environ.get("USERBOT_STRING")
-MSG_ID = 25864
-
-WHITELIST_USERS = {
-    6804133304,
-    6446224566
-}
-
+OWNER_ID = int(environ.get("OWNER_ID", 0))
+MSG_ID = int(environ.get("MSG_ID", 0))
+WHITELIST_USERS = set(
+    int(x) for x in environ.get("WHITELIST_USERS", "").split(",") if x.strip()
+)
 # ---------------- LOGGING ---------------- #
 
 logging.basicConfig(
@@ -44,9 +42,37 @@ userbot = Client(
     session_string=USERBOT_STRING
 )
 
-# ---------------- COMMAND ---------------- #
+# ---------------- START COMMAND ---------------- #
 
-@bot.on_message(filters.command("delall") & filters.group)
+@bot.on_message(filters.command("start") & filters.private)
+async def start_handler(client: Client, msg: Message):
+
+    if msg.from_user.id != OWNER_ID:
+        return await msg.reply("❌ You are not authorized to use this bot.")
+
+    buttons = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/thelx0980")
+            ],
+            [
+                InlineKeyboardButton("📦 Source Code", url="https://github.com/lx0980/group-delete-all")
+           ]
+        ]
+    )
+
+    await msg.reply(
+        "👋 **Hello!**\n\n"
+        "🧹 Use `/delgrpall` in groups where:\n"
+        "• Bot is admin\n"
+        "• Userbot can be invited\n\n"
+        "⚠️ Use carefully (FloodWait may occur)",
+        reply_markup=buttons
+    )
+
+# ---------------- DELETE ALL COMMAND ---------------- #
+
+@bot.on_message(filters.command("delgrpall") & filters.group)
 async def delete_all_handler(client: Client, msg: Message):
 
     chat_id = msg.chat.id
@@ -96,13 +122,10 @@ async def delete_all_handler(client: Client, msg: Message):
         except UserAlreadyParticipant:
             pass
 
-        # ✅ CORRECT PROMOTE (Pyrogram v2)
         await client.promote_chat_member(
             chat_id,
             userbot_id,
-            privileges=ChatPrivileges(
-                can_delete_messages=True
-            )
+            privileges=ChatPrivileges(can_delete_messages=True)
         )
 
     await status.edit("🧹 Deleting messages...")
@@ -112,12 +135,8 @@ async def delete_all_handler(client: Client, msg: Message):
 
     async for m in userbot.get_chat_history(chat_id):
 
-        # ❌ don't delete status message
-        if m.id == status.id:
+        if m.id in (status.id, MSG_ID):
             continue
-            
-        if m.id == MSG_ID:
-            continue  
             
         if not m.from_user:
             continue
@@ -153,4 +172,5 @@ async def main():
     log.info("Bot + Userbot started successfully (Pyrogram v2)")
     await asyncio.Event().wait()
 
-bot.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
