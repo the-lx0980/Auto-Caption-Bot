@@ -13,11 +13,12 @@ API_ID = int(environ.get("API_ID", 0))
 API_HASH = environ.get("API_HASH", "")
 BOT_TOKEN = environ.get("BOT_TOKEN")
 USERBOT_STRING = environ.get("USERBOT_STRING")
-OWNER_ID = int(environ.get("OWNER_ID", 0))
-MSG_ID = int(environ.get("MSG_ID", 0))
+OWNER_ID = set(int(x) for x in environ.get("OWNER_ID", "").split(",") if x.strip())
+MSG_IDS = set(int(x) for x in environ.get("MSG_IDS", "0").split(",") if x.strip())
 WHITELIST_USERS = set(
-    int(x) for x in environ.get("WHITELIST_USERS", "").split(",") if x.strip()
+    int(x) for x in environ.get("WHITELIST_USERS", "0").split(",") if x.strip()
 )
+
 # ---------------- LOGGING ---------------- #
 
 logging.basicConfig(
@@ -47,17 +48,6 @@ userbot = Client(
 @bot.on_message(filters.command("start") & filters.private)
 async def start_handler(client: Client, msg: Message):
 
-    if msg.from_user.id != OWNER_ID:
-        text = "❌ This bot is personal/private use only.\n\n💡 Make your own using this repo.\nhttps://github.com/lx0980/group-delete-all"
-    else:
-        text = (
-            "👋 **Hello Owner!**\n\n"
-            "🧹 Use `/delgrpall` in groups where:\n"
-            "• Bot is admin\n"
-            "• Userbot can be invited\n\n"
-            "⚠️ Use carefully (FloodWait may occur)"
-        )
-
     buttons = InlineKeyboardMarkup(
         [
             [
@@ -69,6 +59,17 @@ async def start_handler(client: Client, msg: Message):
         ]
     )
 
+    if msg.from_user.id in OWNERS:
+        text = (
+            "👋 **Hello Owner!**\n\n"
+            "🧹 Use `/delgrpall` in groups where:\n"
+            "• Bot is admin\n"
+            "• Userbot can be invited\n\n"
+            "⚠️ Use carefully (FloodWait may occur)"
+        )
+    else:
+        text = "❌ This bot is personal/private use only.\n\n💡 Make your own using this repo.\nhttps://github.com/lx0980/group-delete-all"
+
     await msg.reply(
         text,
         reply_markup=buttons
@@ -78,6 +79,10 @@ async def start_handler(client: Client, msg: Message):
 
 @bot.on_message(filters.command("delgrpall") & filters.group)
 async def delete_all_handler(client: Client, msg: Message):
+
+    # Only owners can use
+    if msg.from_user.id not in OWNERS:
+        return await msg.reply("❌ You are not a bot owner")
 
     chat_id = msg.chat.id
 
@@ -139,7 +144,7 @@ async def delete_all_handler(client: Client, msg: Message):
 
     async for m in userbot.get_chat_history(chat_id):
 
-        if m.id in (status.id, MSG_ID):
+        if m.id == status.id or m.id in MSG_IDS:
             continue
             
         if not m.from_user:
