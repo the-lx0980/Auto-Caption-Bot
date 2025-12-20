@@ -13,11 +13,13 @@ API_ID = int(getenv("API_ID", 0))
 API_HASH = getenv("API_HASH", "")
 BOT_TOKEN = getenv("BOT_TOKEN")
 USERBOT_STRING = getenv("USERBOT_STRING")
-OWNERS = set(int(x) for x in getenv("OWNERS", "").split(",") if x.strip())
-MSG_IDS = set(int(x) for x in getenv("MSG_IDS", "0").split(",") if x.strip())
-WHITELIST_USERS = set(
-    int(x) for x in getenv("WHITELIST_USERS", "0").split(",") if x.strip()
-)
+OWNERS = {int(x.strip()) for x in getenv("OWNERS", "").split(",") if x.strip().isdigit()}
+MSG_IDS = {int(x.strip()) for x in getenv("MSG_IDS", "").split(",") if x.strip().isdigit()}
+WHITELIST_USERS = {
+    int(x.strip())
+    for x in getenv("WHITELIST_USERS", "").split(",")
+    if x.strip().isdigit()
+}
 
 # ---------------- LOGGING ---------------- #
 
