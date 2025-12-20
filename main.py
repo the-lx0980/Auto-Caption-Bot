@@ -12,11 +12,8 @@ from pyrogram.types import Message
 API_ID = 37427575
 API_HASH = "30c8070bf74cb5f499c6305c9bfb9717"
 BOT_TOKEN = environ.get("BOT_TOKEN")
-
-
 USERBOT_STRING = environ.get("USERBOT_STRING")
 
-# IDs whose messages will NOT be deleted
 WHITELIST_USERS = {
     5163706369,
     1985266909,
@@ -41,19 +38,20 @@ bot = Client(
 )
 
 userbot = Client(
-    name="delete_userbot",
+    "delete_userbot",
     api_id=API_ID,
     api_hash=API_HASH,
     session_string=USERBOT_STRING
 )
 
+# ---------------- COMMAND ---------------- #
 
 @bot.on_message(filters.command("delall") & filters.group)
 async def delete_all_handler(client: Client, msg: Message):
 
     chat_id = msg.chat.id
 
-    # Admin check
+    # ---- Admin check (command sender) ----
     member = await client.get_chat_member(chat_id, msg.from_user.id)
     if member.status not in (
         ChatMemberStatus.ADMINISTRATOR,
@@ -64,7 +62,7 @@ async def delete_all_handler(client: Client, msg: Message):
     if not member.privileges or not member.privileges.can_delete_messages:
         return await msg.reply("❌ No delete permission")
 
-  
+    # ---- Bot admin check ----
     bot_id = (await client.get_me()).id
     bot_member = await client.get_chat_member(chat_id, bot_id)
 
@@ -74,18 +72,50 @@ async def delete_all_handler(client: Client, msg: Message):
     if not bot_member.privileges.can_delete_messages:
         return await msg.reply("❌ I need delete permission")
 
+    if not bot_member.privileges.can_invite_users:
+        return await msg.reply("❌ I need invite users permission")
+
+    if not bot_member.privileges.can_promote_members:
+        return await msg.reply("❌ I need promote members permission")
+
+    status = await msg.reply("🧹 Preparing deletion...")
+
+    # ---- Ensure userbot is member ----
+    userbot_id = (await userbot.get_me()).id
+    need_leave = False
 
     try:
-        await userbot.join_chat(chat_id)
-    except UserAlreadyParticipant:
-        pass
+        await client.get_chat_member(chat_id, userbot_id)
+    except Exception:
+        # create invite link
+        invite = await client.create_chat_invite_link(
+            chat_id,
+            creates_join_request=False
+        )
 
-    status = await msg.reply("🧹 Deleting messages...")
+        try:
+            await userbot.join_chat(invite.invite_link)
+            need_leave = True
+        except UserAlreadyParticipant:
+            pass
+
+        # promote userbot
+        await client.promote_chat_member(
+            chat_id,
+            userbot_id,
+            can_delete_messages=True
+        )
+
+    await status.edit("🧹 Deleting messages...")
 
     deleted = 0
     skipped = 0
 
     async for m in userbot.get_chat_history(chat_id):
+
+        # ❌ do NOT delete status message
+        if m.id == status.id:
+            continue
 
         if not m.from_user:
             continue
@@ -110,12 +140,16 @@ async def delete_all_handler(client: Client, msg: Message):
         f"⏭ Skipped: {skipped}"
     )
 
-    await userbot.leave_chat(chat_id)
+    # ---- Leave chat if joined temporarily ----
+    if need_leave:
+        await userbot.leave_chat(chat_id)
+
+# ---------------- RUN ---------------- #
 
 async def main():
     await userbot.start()
     await bot.start()
-    log.info("Bot + Userbot started with STRING SESSION")
+    log.info("Bot + Userbot started successfully")
     await asyncio.Event().wait()
 
 bot.run(main())
