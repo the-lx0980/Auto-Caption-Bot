@@ -1,24 +1,23 @@
 import asyncio
 import logging
-from os import getenv
+from os import environ
 
 from pyrogram import Client, filters
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait, UserAlreadyParticipant
-from pyrogram.types import Message, ChatPrivileges, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import Message, ChatPrivileges
 
 # ---------------- CONFIG ---------------- #
 
-API_ID = int(getenv("API_ID", 0))
-API_HASH = getenv("API_HASH", "")
-BOT_TOKEN = getenv("BOT_TOKEN")
-USERBOT_STRING = getenv("USERBOT_STRING")
-OWNERS = {int(x.strip()) for x in getenv("OWNERS", "").split(",") if x.strip().isdigit()}
-MSG_IDS = {int(x.strip()) for x in getenv("MSG_IDS", "").split(",") if x.strip().isdigit()}
+API_ID = 37427575
+API_HASH = "30c8070bf74cb5f499c6305c9bfb9717"
+BOT_TOKEN = environ.get("BOT_TOKEN")
+USERBOT_STRING = environ.get("USERBOT_STRING")
+MSG_ID = 25864
+
 WHITELIST_USERS = {
-    int(x.strip())
-    for x in getenv("WHITELIST_USERS", "").split(",")
-    if x.strip().isdigit()
+    6804133304,
+    6446224566
 }
 
 # ---------------- LOGGING ---------------- #
@@ -45,46 +44,10 @@ userbot = Client(
     session_string=USERBOT_STRING
 )
 
-# ---------------- START COMMAND ---------------- #
+# ---------------- COMMAND ---------------- #
 
-@bot.on_message(filters.command("start") & filters.private)
-async def start_handler(client, msg):
-
-    buttons = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/thelx0980")
-            ],
-            [
-                InlineKeyboardButton("📦 Source Code", url="https://github.com/lx0980/group-delete-all")
-            ]
-        ]
-    )
-
-    if 'a' == 'a': # msg.from_user.id in OWNERS:
-        text = (
-            "👋 **Hello Owner!**\n\n"
-            "🧹 Use `/delgrpall` in groups where:\n"
-            "• Bot is admin\n"
-            "• Userbot can be invited\n\n"
-            "⚠️ Use carefully (FloodWait may occur)"
-        )
-    else:
-        text = "❌ This bot is personal/private use only.\n\n💡 Make your own using this repo.\nhttps://github.com/lx0980/group-delete-all"
-
-    await msg.reply(
-        text,
-        reply_markup=buttons
-    )
-
-# ---------------- DELETE ALL COMMAND ---------------- #
-
-@bot.on_message(filters.command("delgrpall") & filters.group)
+@bot.on_message(filters.command("delall") & filters.group)
 async def delete_all_handler(client: Client, msg: Message):
-
-    # Only owners can use
-    #if msg.from_user.id not in OWNERS:
-       # return await msg.reply("❌ You are not a bot owner")
 
     chat_id = msg.chat.id
 
@@ -133,10 +96,13 @@ async def delete_all_handler(client: Client, msg: Message):
         except UserAlreadyParticipant:
             pass
 
+        # ✅ CORRECT PROMOTE (Pyrogram v2)
         await client.promote_chat_member(
             chat_id,
             userbot_id,
-            privileges=ChatPrivileges(can_delete_messages=True)
+            privileges=ChatPrivileges(
+                can_delete_messages=True
+            )
         )
 
     await status.edit("🧹 Deleting messages...")
@@ -146,8 +112,12 @@ async def delete_all_handler(client: Client, msg: Message):
 
     async for m in userbot.get_chat_history(chat_id):
 
-        if m.id == status.id or m.id in MSG_IDS:
+        # ❌ don't delete status message
+        if m.id == status.id:
             continue
+            
+        if m.id == MSG_ID:
+            continue  
             
         if not m.from_user:
             continue
@@ -180,8 +150,7 @@ async def delete_all_handler(client: Client, msg: Message):
 async def main():
     await userbot.start()
     await bot.start()
-    log.info("⚙️ Bot started successfully")
+    log.info("Bot + Userbot started successfully (Pyrogram v2)")
     await asyncio.Event().wait()
 
-if __name__ == "__main__":
-    asyncio.run(main())
+bot.run(main())
