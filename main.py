@@ -13,7 +13,7 @@ API_ID = int(environ.get("API_ID", 0))
 API_HASH = environ.get("API_HASH", "")
 BOT_TOKEN = environ.get("BOT_TOKEN")
 USERBOT_STRING = environ.get("USERBOT_STRING")
-OWNER_ID = set(int(x) for x in environ.get("OWNER_ID", "").split(",") if x.strip())
+OWNERS = set(int(x) for x in environ.get("OWNERS", "").split(",") if x.strip())
 MSG_IDS = set(int(x) for x in environ.get("MSG_IDS", "0").split(",") if x.strip())
 WHITELIST_USERS = set(
     int(x) for x in environ.get("WHITELIST_USERS", "0").split(",") if x.strip()
