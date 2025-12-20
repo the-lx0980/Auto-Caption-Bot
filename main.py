@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from os import environ
+from os import getenv
 
 from pyrogram import Client, filters
 from pyrogram.enums import ChatMemberStatus
@@ -9,14 +9,14 @@ from pyrogram.types import Message, ChatPrivileges, InlineKeyboardMarkup, Inline
 
 # ---------------- CONFIG ---------------- #
 
-API_ID = int(environ.get("API_ID", 0))
-API_HASH = environ.get("API_HASH", "")
-BOT_TOKEN = environ.get("BOT_TOKEN")
-USERBOT_STRING = environ.get("USERBOT_STRING")
-OWNERS = set(int(x) for x in environ.get("OWNERS", "").split(",") if x.strip())
-MSG_IDS = set(int(x) for x in environ.get("MSG_IDS", "0").split(",") if x.strip())
+API_ID = int(getenv("API_ID", 0))
+API_HASH = getenv("API_HASH", "")
+BOT_TOKEN = getenv("BOT_TOKEN")
+USERBOT_STRING = getenv("USERBOT_STRING")
+OWNERS = set(int(x) for x in getenv("OWNERS", "").split(",") if x.strip())
+MSG_IDS = set(int(x) for x in getenv("MSG_IDS", "0").split(",") if x.strip())
 WHITELIST_USERS = set(
-    int(x) for x in environ.get("WHITELIST_USERS", "0").split(",") if x.strip()
+    int(x) for x in getenv("WHITELIST_USERS", "0").split(",") if x.strip()
 )
 
 # ---------------- LOGGING ---------------- #
