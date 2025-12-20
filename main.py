@@ -46,7 +46,7 @@ userbot = Client(
 # ---------------- START COMMAND ---------------- #
 
 @bot.on_message(filters.command("start") & filters.private)
-async def start_handler(client: Client, msg: Message):
+async def start_handler(client, msg):
 
     buttons = InlineKeyboardMarkup(
         [
