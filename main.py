@@ -74,7 +74,6 @@ async def delete_all_handler(client: Client, msg: Message):
     if not bot_member.privileges.can_delete_messages:
         return await msg.reply("❌ I need delete permission")
 
-    await userbot.start()
 
     try:
         await userbot.join_chat(chat_id)
