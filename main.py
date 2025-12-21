@@ -30,15 +30,32 @@ userbot = Client(
 
 # ---------------- /JOIN ---------------- #
 
-@userbot.on_message(filters.command("join"))
+@userbot.on_message(filters.command("join") & filters.me)
 async def join_chat(client: Client, message: Message):
     if len(message.command) < 2:
-        return await message.reply("❌ Usage:\n`/join <invite_link>`")
+        return await message.reply("❌ Usage:\n`/join <link | @username>`")
 
-    link = message.command[1]
+    raw = message.command[1].strip()
+
+    # -------- Parse username / invite -------- #
+    if raw.startswith("https://t.me/"):
+        part = raw.replace("https://t.me/", "")
+    elif raw.startswith("t.me/"):
+        part = raw.replace("t.me/", "")
+    else:
+        part = raw
 
     try:
-        chat = await client.join_chat(link)
+        # INVITE LINK
+        if part.startswith("+") or "joinchat" in raw:
+            chat = await client.join_chat(raw)
+
+        # PUBLIC USERNAME
+        else:
+            if not part.startswith("@"):
+                part = f"@{part}"
+            chat = await client.join_chat(part)
+
         title = chat.title or "Private Chat"
 
         await message.reply(
@@ -48,24 +65,21 @@ async def join_chat(client: Client, message: Message):
         )
 
     except InviteRequestSent:
-        chat = await client.get_chat(link)
+        chat = await client.get_chat(part)
         await message.reply(
-            f"⏳ **Join Request Sent**\n\n"
+            f"⏳ **Join Request Sent**\n"
             f"📌 **Chat:** `{chat.title}`"
         )
 
     except UserAlreadyParticipant:
-        chat = await client.get_chat(link)
+        chat = await client.get_chat(part)
         await message.reply(
-            f"⚠️ **Already Joined**\n\n"
+            f"⚠️ **Already Joined**\n"
             f"📌 **Chat:** `{chat.title}`"
         )
 
     except InviteHashExpired:
-        await message.reply(
-            "❌ **Invite Link Expired / Invalid**\n"
-            "👉 New invite link try karo"
-        )
+        await message.reply("❌ Invite link expired / invalid")
 
     except FloodWait as e:
         await asyncio.sleep(e.value)
