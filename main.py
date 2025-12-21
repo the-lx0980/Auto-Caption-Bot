@@ -1,18 +1,21 @@
 import asyncio
+import json
+import time
 import logging
-from os import environ
+from os import getenv
 
 from pyrogram import Client, filters
 from pyrogram.enums import ChatMemberStatus
-from pyrogram.errors import FloodWait, UserAlreadyParticipant
+from pyrogram.errors import FloodWait, UserNotParticipant
 from pyrogram.types import Message, ChatPrivileges
 
 # ---------------- CONFIG ---------------- #
 
-API_ID = 37427575
-API_HASH = "30c8070bf74cb5f499c6305c9bfb9717"
-BOT_TOKEN = environ.get("BOT_TOKEN")
-USERBOT_STRING = environ.get("USERBOT_STRING")
+API_ID = int(getenv("API_ID"))
+API_HASH = getenv("API_HASH")
+BOT_TOKEN = getenv("BOT_TOKEN")
+USERBOT_STRING = getenv("USERBOT_STRING")
+
 MSG_ID = 25864
 
 WHITELIST_USERS = {
@@ -20,12 +23,12 @@ WHITELIST_USERS = {
     6446224566
 }
 
+PROGRESS_FILE = "progress.json"
+CANCEL_TASKS = set()
+
 # ---------------- LOGGING ---------------- #
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 # ---------------- CLIENTS ---------------- #
@@ -44,81 +47,122 @@ userbot = Client(
     session_string=USERBOT_STRING
 )
 
-# ---------------- COMMAND ---------------- #
+# ---------------- HELPERS ---------------- #
+
+def progress_bar(percent):
+    total = 20
+    filled = int((percent / 100) * total)
+    return "▓" * filled + "░" * (total - filled)
+
+def load_progress():
+    try:
+        with open(PROGRESS_FILE) as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_progress(data):
+    with open(PROGRESS_FILE, "w") as f:
+        json.dump(data, f)
+
+def format_eta(seconds):
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    return f"{h}h {m}m {s}s"
+
+# ---------------- CANCEL COMMAND ---------------- #
+
+@bot.on_message(filters.command("cancel") & filters.group)
+async def cancel_handler(_, msg: Message):
+    CANCEL_TASKS.add(msg.chat.id)
+    await msg.reply("⛔ Deletion cancelled")
+
+# ---------------- DELETE COMMAND ---------------- #
 
 @bot.on_message(filters.command("delall") & filters.group)
 async def delete_all_handler(client: Client, msg: Message):
 
     chat_id = msg.chat.id
 
-    # ---- Admin check (command sender) ----
+    # -------- PERMISSION CHECKS -------- #
+
     member = await client.get_chat_member(chat_id, msg.from_user.id)
-    if member.status not in (
-        ChatMemberStatus.ADMINISTRATOR,
-        ChatMemberStatus.OWNER
+    if member.status not in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER):
+        return await msg.reply("❌ Admin only")
+
+    bot_member = await client.get_chat_member(chat_id, (await client.get_me()).id)
+    priv = bot_member.privileges
+
+    if not priv or not (
+        priv.can_delete_messages and
+        priv.can_invite_users and
+        priv.can_promote_members
     ):
-        return await msg.reply("❌ Admin only command")
-
-    if not member.privileges or not member.privileges.can_delete_messages:
-        return await msg.reply("❌ No delete permission")
-
-    # ---- Bot admin check ----
-    bot_id = (await client.get_me()).id
-    bot_member = await client.get_chat_member(chat_id, bot_id)
-
-    if bot_member.status != ChatMemberStatus.ADMINISTRATOR:
-        return await msg.reply("❌ I'm not admin")
-
-    if not bot_member.privileges.can_delete_messages:
-        return await msg.reply("❌ I need delete permission")
-
-    if not bot_member.privileges.can_invite_users:
-        return await msg.reply("❌ I need invite permission")
-
-    if not bot_member.privileges.can_promote_members:
-        return await msg.reply("❌ I need promote permission")
+        return await msg.reply("❌ Bot missing required permissions")
 
     status = await msg.reply("🧹 Preparing deletion...")
 
+    # -------- USERBOT STATE HANDLING -------- #
+
     userbot_id = (await userbot.get_me()).id
     need_leave = False
+    need_demote = False
 
-    # ---- Ensure userbot is member ----
     try:
-        await client.get_chat_member(chat_id, userbot_id)
+        ub_member = await client.get_chat_member(chat_id, userbot_id)
 
-    except Exception:
+        if ub_member.status != ChatMemberStatus.ADMINISTRATOR:
+            await client.promote_chat_member(
+                chat_id,
+                userbot_id,
+                privileges=ChatPrivileges(can_delete_messages=True)
+            )
+            need_demote = True
+
+    except UserNotParticipant:
         invite = await client.create_chat_invite_link(chat_id)
+        await userbot.join_chat(invite.invite_link)
 
-        try:
-            await userbot.join_chat(invite.invite_link)
-            need_leave = True
-        except UserAlreadyParticipant:
-            pass
-
-        # ✅ CORRECT PROMOTE (Pyrogram v2)
         await client.promote_chat_member(
             chat_id,
             userbot_id,
-            privileges=ChatPrivileges(
-                can_delete_messages=True
-            )
+            privileges=ChatPrivileges(can_delete_messages=True)
         )
 
-    await status.edit("🧹 Deleting messages...")
+        need_leave = True
 
+    # -------- LOAD PROGRESS -------- #
+
+    progress = load_progress().get(str(chat_id), {})
+    last_id = progress.get("last_id", 0)
+    user_stats = progress.get("users", {})
+
+    # -------- COUNT TOTAL -------- #
+
+    total = 0
+    async for _ in userbot.get_chat_history(chat_id):
+        total += 1
+
+    start_time = time.time()
     deleted = 0
     skipped = 0
+    batch = []
+    last_percent = -1
+
+    # -------- DELETE LOOP -------- #
 
     async for m in userbot.get_chat_history(chat_id):
 
-        # ❌ don't delete status message
-        if m.id == status.id:
+        if chat_id in CANCEL_TASKS:
+            await status.edit("⛔ Cancelled")
+            break
+
+        if m.id <= last_id:
             continue
-            
-        if m.id == MSG_ID:
-            continue  
-            
+
+        if m.id in (status.id, MSG_ID):
+            continue
+
         if not m.from_user:
             continue
 
@@ -126,21 +170,53 @@ async def delete_all_handler(client: Client, msg: Message):
             skipped += 1
             continue
 
-        try:
-            await userbot.delete_messages(chat_id, m.id)
-            deleted += 1
+        batch.append(m.id)
+        uid = str(m.from_user.id)
+        user_stats[uid] = user_stats.get(uid, 0) + 1
 
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
+        if len(batch) == 100:
+            try:
+                await userbot.delete_messages(chat_id, batch)
+                deleted += len(batch)
+                batch.clear()
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
 
-        except Exception as e:
-            log.warning(e)
+        if deleted and deleted % 1000 == 0:
+            percent = int((deleted / total) * 100)
+            if percent >= last_percent + 5:
+                last_percent = percent
+                elapsed = time.time() - start_time
+                speed = deleted / elapsed if elapsed else 0
+                eta = (total - deleted) / speed if speed else 0
+
+                await status.edit(
+                    f"🧹 Deleting...\n\n"
+                    f"{progress_bar(percent)} {percent}%\n"
+                    f"🗑 Deleted: {deleted}\n"
+                    f"⏭ Skipped: {skipped}\n"
+                    f"⏳ ETA: {format_eta(eta)}"
+                )
+
+        save_progress({
+            str(chat_id): {
+                "last_id": m.id,
+                "users": user_stats
+            }
+        })
+
+    # -------- FINAL -------- #
 
     await status.edit(
         f"✅ Done\n\n"
         f"🗑 Deleted: {deleted}\n"
         f"⏭ Skipped: {skipped}"
     )
+
+    # -------- CLEANUP -------- #
+
+    if need_demote:
+        await client.promote_chat_member(chat_id, userbot_id, ChatPrivileges())
 
     if need_leave:
         await userbot.leave_chat(chat_id)
@@ -150,7 +226,6 @@ async def delete_all_handler(client: Client, msg: Message):
 async def main():
     await userbot.start()
     await bot.start()
-    log.info("Bot + Userbot started successfully (Pyrogram v2)")
     await asyncio.Event().wait()
 
 bot.run(main())
