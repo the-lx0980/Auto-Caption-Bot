@@ -16,7 +16,7 @@ API_HASH = getenv("API_HASH")
 BOT_TOKEN = getenv("BOT_TOKEN")
 USERBOT_STRING = getenv("USERBOT_STRING")
 
-MSG_ID = 25864
+MSG_ID = {25864, 96066, 231095}
 
 WHITELIST_USERS = {
     6804133304,
@@ -169,8 +169,8 @@ async def delete_all_handler(client: Client, msg: Message):
 
         if m.id <= last_id:
             break
-
-        if m.id in (status.id, MSG_ID):
+            
+        if m.id == status.id or m.id in MSG_ID:
             continue
 
         if not m.from_user:
